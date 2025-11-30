@@ -71,5 +71,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Run uvicorn (ASGI server)
-CMD ["uv", "run", "uvicorn", "config.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Run gunicorn with uvicorn workers (ASGI server)
+CMD ["uv", "run", "gunicorn", "config.asgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker"]
