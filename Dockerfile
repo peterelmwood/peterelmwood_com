@@ -71,5 +71,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Run gunicorn
-CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "config.wsgi:application"]
+# Run gunicorn with uvicorn workers (ASGI server)
+CMD ["uv", "run", "gunicorn", "config.asgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker"]
