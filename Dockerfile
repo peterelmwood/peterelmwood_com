@@ -58,8 +58,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Copy application code
 COPY . .
 
-# Collect static files
-RUN uv run python manage.py collectstatic --noinput
+# Collect static files (using a temporary secret key for build only)
+RUN SECRET_KEY=build-time-secret-key \
+    DATABASE_URL=sqlite:///db.sqlite3 \
+    uv run python manage.py collectstatic --noinput
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
