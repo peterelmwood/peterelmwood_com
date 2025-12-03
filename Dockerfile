@@ -64,7 +64,7 @@ RUN SECRET_KEY=build-time-secret-key \
     uv run python manage.py collectstatic --noinput
 
 # Change ownership to non-root user
-RUN chown -R appuser:appgroup /app
+RUN chown --recursive appuser:appgroup /app
 
 USER appuser
 
