@@ -1,6 +1,6 @@
 [project]
 name = "peterelmwood-com"
-version = "0.0.4"
+version = "0.0.5"
 description = "Personal website for Peter Elmwood"
 requires-python = ">=3.12"
 dependencies = [
