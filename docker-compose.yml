@@ -3,11 +3,13 @@ services:
     build:
       context: .
       target: development
+    hostname: web
+    post_start:
+      - command: uv run python manage.py migrate
     ports:
       - "8000:8000"
     volumes:
       - .:/app
-      - /app/.venv  # Exclude venv from volume mount
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.local
       - SECRET_KEY=dev-secret-key-not-for-production
@@ -20,6 +22,7 @@ services:
     command: uv run python manage.py runserver 0.0.0.0:8000
 
   db:
+    hostname: db
     image: postgres:17-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data

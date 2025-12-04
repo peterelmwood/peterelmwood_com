@@ -5,7 +5,8 @@ FROM python:3.12-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/venv
 
 WORKDIR /app
 
@@ -13,15 +14,16 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security with a writable home for uv caches
 RUN addgroup --system --gid 1001 appgroup && \
     adduser --system --uid 1001 --gid 1001 --home /home/appuser appuser && \
-    mkdir -p /home/appuser/.cache/uv && \
-    chown -R appuser:appgroup /home/appuser
+    mkdir --parents /home/appuser/.cache/uv && \
+    chown --recursive appuser:appgroup /home/appuser
 
 # Development stage
 FROM base AS development
@@ -37,7 +39,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY . .
 
 # Change ownership to non-root user
-RUN chown -R appuser:appgroup /app
+RUN chown --recursive appuser:appgroup /app /venv
 
 ENV HOME=/home/appuser
 
@@ -68,7 +70,7 @@ RUN SECRET_KEY=build-time-secret-key \
     uv run python manage.py collectstatic --noinput
 
 # Change ownership to non-root user
-RUN chown --recursive appuser:appgroup /app
+RUN chown --recursive appuser:appgroup /app /venv
 
 ENV HOME=/home/appuser
 

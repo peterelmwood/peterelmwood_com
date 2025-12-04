@@ -32,3 +32,8 @@ ignore = []
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.local"
 python_files = ["test_*.py", "*_test.py"]
+
+[dependency-groups]
+dev = [
+    "ipython>=9.8.0",
+]
