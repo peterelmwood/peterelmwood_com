@@ -17,9 +17,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
+# Create non-root user for security with a writable home for uv caches
 RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 --gid 1001 appuser
+    adduser --system --uid 1001 --gid 1001 --home /home/appuser appuser && \
+    mkdir -p /home/appuser/.cache/uv && \
+    chown -R appuser:appgroup /home/appuser
 
 # Development stage
 FROM base AS development
@@ -36,6 +38,8 @@ COPY . .
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
+
+ENV HOME=/home/appuser
 
 USER appuser
 
@@ -65,6 +69,8 @@ RUN SECRET_KEY=build-time-secret-key \
 
 # Change ownership to non-root user
 RUN chown --recursive appuser:appgroup /app
+
+ENV HOME=/home/appuser
 
 USER appuser
 
