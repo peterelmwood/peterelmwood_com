@@ -527,12 +527,25 @@ Perform DBMS-side string replacement for matches by index, allowing efficient bu
    ```python
    from django.db import connection
 
-   def replace_by_index(table, column, start_idx, length, replacement, where_clause=""):
-       """Replace text at specific index position"""
+   # IMPORTANT: Use a whitelist approach or quote_name() to prevent SQL injection
+   ALLOWED_TABLES = {'search_textdatawithsearch', 'search_textdatawithoutsearch'}
+   ALLOWED_COLUMNS = {'content'}
+
+   def replace_by_index(table, column, start_idx, length, replacement):
+       """Replace text at specific index position
+       
+       Note: table and column must be validated against whitelist to prevent SQL injection
+       """
+       if table not in ALLOWED_TABLES or column not in ALLOWED_COLUMNS:
+           raise ValueError("Invalid table or column name")
+       
+       # Use quote_name for safe identifier quoting
+       quoted_table = connection.ops.quote_name(table)
+       quoted_column = connection.ops.quote_name(column)
+       
        sql = f"""
-       UPDATE {table}
-       SET {column} = OVERLAY({column} PLACING %s FROM %s FOR %s)
-       {where_clause}
+       UPDATE {quoted_table}
+       SET {quoted_column} = OVERLAY({quoted_column} PLACING %s FROM %s FOR %s)
        """
        with connection.cursor() as cursor:
            cursor.execute(sql, [replacement, start_idx, length])
@@ -566,7 +579,14 @@ Perform DBMS-side string replacement for matches by index, allowing efficient bu
            if method == 'by_index':
                start = request.data.get('start')
                length = request.data.get('length')
-               count = replace_by_index(..., start, length, replacement)
+               # Using TextDataWithSearch table and content column
+               count = replace_by_index(
+                   'search_textdatawithsearch', 
+                   'content', 
+                   start, 
+                   length, 
+                   replacement
+               )
            else:
                count = TextDataWithSearch.objects.filter(
                    content__contains=pattern
