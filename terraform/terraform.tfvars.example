@@ -1,0 +1,20 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and update with your values
+
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+zone       = "us-central1-a"
+
+vm_name      = "peterelmwood-web-vm"
+machine_type = "e2-medium"
+disk_size_gb = 30
+
+network_name = "peterelmwood-network"
+subnet_name  = "peterelmwood-subnet"
+subnet_cidr  = "10.0.0.0/24"
+
+ssh_user       = "ubuntu"
+ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2E... your-email@example.com"
+
+domain_name = "peterelmwood.com"
+environment = "production"
