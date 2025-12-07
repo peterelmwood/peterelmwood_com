@@ -67,8 +67,8 @@ runcmd:
   - apt-get update
   - apt-get install -y google-cloud-sdk
   
-  # Configure Docker to use gcloud for authentication
-  - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+  # Configure Docker to use gcloud for authentication (region from variable)
+  - gcloud auth configure-docker ${region}-docker.pkg.dev --quiet
 
 # Write configuration files
 write_files:
@@ -86,17 +86,18 @@ write_files:
       maxretry = 3
     permissions: '0644'
   
-  - path: /opt/peterelmwood_com/.env.production
+  - path: /opt/peterelmwood_com/.env.production.example
     content: |
-      # Production environment file
-      # Update these values with your actual secrets
-      SECRET_KEY=changeme
+      # Production environment file template
+      # Copy this to .env.production and update with your actual secrets
+      # Consider using Google Secret Manager for sensitive values
+      SECRET_KEY=your-secret-key-here
       DEBUG=False
-      ALLOWED_HOSTS=
+      ALLOWED_HOSTS=your-domain.com
       DATABASE_URL=postgres://user:password@db:5432/dbname
-      GS_BUCKET_NAME=
+      GS_BUCKET_NAME=your-bucket-name
       SECURE_SSL_REDIRECT=True
-    permissions: '0600'
+    permissions: '0644'
     owner: ${ssh_user}:${ssh_user}
 
 # Final message
@@ -112,7 +113,8 @@ final_message: |
   The application directory is ready at /opt/peterelmwood_com
   
   Next steps:
-  1. Update /opt/peterelmwood_com/.env.production with actual secrets
-  2. Deploy the application using Docker Compose
+  1. Copy /opt/peterelmwood_com/.env.production.example to .env.production
+  2. Update .env.production with actual secrets (consider using Google Secret Manager)
+  3. Deploy the application using Docker Compose
   
   System reboot is recommended to apply all changes.
