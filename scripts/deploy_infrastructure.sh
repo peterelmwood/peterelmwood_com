@@ -63,7 +63,7 @@ authenticate_gcloud() {
     
     # Set the project
     local project_id
-    project_id=$(grep "^project_id" "${TERRAFORM_DIR}/terraform.tfvars" | cut -d '"' -f 2)
+    project_id=$(grep "^project_id" "${TERRAFORM_DIR}/terraform.tfvars" | cut --delimiter='"' --fields=2)
     
     if [ -n "$project_id" ]; then
         gcloud config set project "$project_id"
@@ -94,7 +94,7 @@ terraform_apply() {
     log_info "Applying Terraform configuration..."
     cd "${TERRAFORM_DIR}"
     terraform apply tfplan
-    rm -f tfplan
+    rm --force tfplan
     
     log_info "Deployment complete!"
     log_info "Fetching outputs..."
