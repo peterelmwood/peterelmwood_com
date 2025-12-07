@@ -212,6 +212,16 @@ GCP_PROJECT_ID=your-project-id ./scripts/deploy_cloudrun.sh url
 GCP_PROJECT_ID=your-project-id ./scripts/deploy_cloudrun.sh logs
 ```
 
+**Security Note:** The default deployment uses `ALLOWED_HOSTS=*` for initial setup. In production, configure this to your specific domain(s):
+
+```bash
+# Update ALLOWED_HOSTS for production
+gcloud run services update peterelmwood-com \
+  --update-env-vars="ALLOWED_HOSTS=peterelmwood.com,www.peterelmwood.com" \
+  --region=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
+```
+
 ### Automated Deployment (CI/CD)
 
 The application automatically deploys to Cloud Run when code is pushed to the `main` branch.

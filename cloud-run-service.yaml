@@ -38,6 +38,7 @@ spec:
               name: database-url
               key: latest
         - name: ALLOWED_HOSTS
+          # NOTE: Replace '*' with specific domains in production (e.g., 'example.com,www.example.com')
           value: '*'
         - name: GS_BUCKET_NAME
           valueFrom:
