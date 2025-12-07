@@ -107,18 +107,15 @@ setup_service_account() {
     log_info "Granting permissions to service account..."
     gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="serviceAccount:$SERVICE_ACCOUNT" \
-        --role="roles/cloudsql.client" \
-        --condition=None
+        --role="roles/cloudsql.client"
     
     gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="serviceAccount:$SERVICE_ACCOUNT" \
-        --role="roles/storage.objectAdmin" \
-        --condition=None
+        --role="roles/storage.objectAdmin"
     
     gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="serviceAccount:$SERVICE_ACCOUNT" \
-        --role="roles/secretmanager.secretAccessor" \
-        --condition=None
+        --role="roles/secretmanager.secretAccessor"
 }
 
 deploy_to_cloud_run() {

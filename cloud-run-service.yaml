@@ -4,7 +4,6 @@ metadata:
   name: peterelmwood-com
   annotations:
     run.googleapis.com/ingress: all
-    run.googleapis.com/launch-stage: BETA
 spec:
   template:
     metadata:
