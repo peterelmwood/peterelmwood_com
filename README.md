@@ -25,6 +25,16 @@ peterelmwood_com/
 │   ├── urls.py
 │   ├── wsgi.py
 │   └── asgi.py
+├── terraform/                  # Infrastructure as Code
+│   ├── main.tf                # Main Terraform configuration
+│   ├── variables.tf           # Variable definitions
+│   ├── outputs.tf             # Output values
+│   ├── provider.tf            # Provider configuration
+│   ├── cloud-init.yaml        # VM initialization script
+│   └── README.md              # Infrastructure documentation
+├── scripts/
+│   ├── deploy_infrastructure.sh  # Infrastructure deployment script
+│   └── deploy_application.sh     # Application deployment script
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml         # CI/CD workflow
@@ -108,6 +118,31 @@ peterelmwood_com/
 
 ## Production Deployment
 
+### Infrastructure Setup
+
+The application can be deployed to a GCP VM using the provided Terraform configuration.
+
+#### Quick Start
+
+1. **Configure Infrastructure Variables**:
+   ```bash
+   cd terraform
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your GCP project details and SSH key
+   ```
+
+2. **Deploy Infrastructure**:
+   ```bash
+   ./scripts/deploy_infrastructure.sh deploy
+   ```
+
+3. **Deploy Application**:
+   ```bash
+   ./scripts/deploy_application.sh deploy
+   ```
+
+For detailed infrastructure documentation, see [terraform/README.md](terraform/README.md).
+
 ### GCP Setup Requirements
 
 1. Create a GCP project
@@ -122,7 +157,7 @@ peterelmwood_com/
 
 Set the following secrets in your GitHub repository:
 
-- `GCP_SA_KEY`: GCP service account JSON key
+- `GCP_SERVICE_ACCOUNT_KEY`: GCP service account JSON key
 
 ### GitHub Repository Variables
 

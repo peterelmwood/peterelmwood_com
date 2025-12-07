@@ -1,0 +1,118 @@
+#cloud-config
+
+# Package updates and upgrades
+package_update: true
+package_upgrade: true
+
+# Packages to install
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - software-properties-common
+  - git
+  - vim
+  - htop
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+
+# Configure UFW firewall
+runcmd:
+  # Install Docker
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  
+  # Add ubuntu user to docker group
+  - usermod -aG docker ${ssh_user}
+  
+  # Enable and start Docker
+  - systemctl enable docker
+  - systemctl start docker
+  
+  # Configure UFW firewall
+  - ufw --force enable
+  - ufw allow 22/tcp comment 'SSH'
+  - ufw allow 80/tcp comment 'HTTP'
+  - ufw allow 443/tcp comment 'HTTPS'
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  
+  # Configure fail2ban for SSH protection
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+  
+  # Configure SSH security
+  - sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+  - sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+  - sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+  - systemctl restart sshd
+  
+  # Enable automatic security updates
+  - echo 'Unattended-Upgrade::Automatic-Reboot "false";' >> /etc/apt/apt.conf.d/50unattended-upgrades
+  - echo 'Unattended-Upgrade::Automatic-Reboot-Time "03:00";' >> /etc/apt/apt.conf.d/50unattended-upgrades
+  - systemctl enable unattended-upgrades
+  
+  # Create application directory
+  - mkdir -p /opt/peterelmwood_com
+  - chown ${ssh_user}:${ssh_user} /opt/peterelmwood_com
+  
+  # Install Google Cloud SDK (for pulling from Artifact Registry)
+  - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+  - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+  - apt-get update
+  - apt-get install -y google-cloud-sdk
+  
+  # Configure Docker to use gcloud for authentication
+  - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+# Write configuration files
+write_files:
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = 3600
+      findtime = 600
+      maxretry = 5
+      
+      [sshd]
+      enabled = true
+      port = 22
+      logpath = /var/log/auth.log
+      maxretry = 3
+    permissions: '0644'
+  
+  - path: /opt/peterelmwood_com/.env.production
+    content: |
+      # Production environment file
+      # Update these values with your actual secrets
+      SECRET_KEY=changeme
+      DEBUG=False
+      ALLOWED_HOSTS=
+      DATABASE_URL=postgres://user:password@db:5432/dbname
+      GS_BUCKET_NAME=
+      SECURE_SSL_REDIRECT=True
+    permissions: '0600'
+    owner: ${ssh_user}:${ssh_user}
+
+# Final message
+final_message: |
+  Cloud-init has completed!
+  
+  Docker and Docker Compose are installed and ready to use.
+  Firewall (UFW) is configured and active.
+  SSH is hardened (password authentication disabled).
+  Fail2ban is protecting SSH from brute force attacks.
+  Automatic security updates are enabled.
+  
+  The application directory is ready at /opt/peterelmwood_com
+  
+  Next steps:
+  1. Update /opt/peterelmwood_com/.env.production with actual secrets
+  2. Deploy the application using Docker Compose
+  
+  System reboot is recommended to apply all changes.
