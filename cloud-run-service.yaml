@@ -1,0 +1,72 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: peterelmwood-com
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: '0'
+        autoscaling.knative.dev/maxScale: '10'
+        run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_NAME
+        run.googleapis.com/cpu-throttling: 'true'
+    spec:
+      serviceAccountName: cloud-run-sa@PROJECT_ID.iam.gserviceaccount.com
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+      - name: peterelmwood-com
+        image: REGION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REPO/peterelmwood-com:latest
+        ports:
+        - name: http1
+          containerPort: 8000
+        env:
+        - name: DJANGO_SETTINGS_MODULE
+          value: config.settings.production
+        - name: DEBUG
+          value: 'False'
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: django-secret-key
+              key: latest
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-url
+              key: latest
+        - name: ALLOWED_HOSTS
+          value: '*'
+        - name: GS_BUCKET_NAME
+          valueFrom:
+            secretKeyRef:
+              name: gcs-bucket-name
+              key: latest
+        - name: SECURE_SSL_REDIRECT
+          value: 'True'
+        resources:
+          limits:
+            cpu: '1000m'
+            memory: 512Mi
+          requests:
+            cpu: '1000m'
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30

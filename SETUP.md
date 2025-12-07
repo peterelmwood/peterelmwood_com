@@ -1,170 +1,226 @@
-# VM Setup Quick Reference
+# Cloud Run Deployment - Quick Reference
 
 ## Prerequisites Checklist
 
 - [ ] GCP account with billing enabled
 - [ ] GCP project created
 - [ ] gcloud CLI installed and configured
-- [ ] Terraform installed (>= 1.0)
-- [ ] SSH key pair generated
-- [ ] docker installed locally (for application deployment)
+- [ ] Docker installed locally (for testing)
 
 ## Setup Steps
 
-### 1. Generate SSH Key (if needed)
+### 1. Install and Configure gcloud CLI
 
 ```bash
-ssh-keygen -t rsa -b 4096 -C "your-email@example.com" -f ~/.ssh/peterelmwood_vm
+# Install gcloud (if not already installed)
+# See: https://cloud.google.com/sdk/docs/install
+
+# Login and set project
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
 ```
 
-### 2. Configure Terraform
+### 2. Enable Required APIs
 
 ```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
+export GCP_PROJECT_ID="your-project-id"
+export GCP_REGION="us-central1"
+
+gcloud services enable \
+  run.googleapis.com \
+  artifactregistry.googleapis.com \
+  sqladmin.googleapis.com \
+  secretmanager.googleapis.com \
+  --project=$GCP_PROJECT_ID
 ```
 
-Edit `terraform.tfvars`:
-```hcl
-project_id     = "your-gcp-project-id"
-ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2E... your-email@example.com"
-```
-
-### 3. Deploy Infrastructure
+### 3. Create Artifact Registry
 
 ```bash
-./scripts/deploy_infrastructure.sh deploy
+gcloud artifacts repositories create peterelmwood \
+  --repository-format=docker \
+  --location=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
 ```
 
-### 4. Verify VM
+### 4. Create Secrets
 
 ```bash
-# Get VM details
-./scripts/deploy_infrastructure.sh output
+# Django secret key (generate with: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
+echo -n "your-generated-secret-key" | gcloud secrets create django-secret-key --data-file=- --project=$GCP_PROJECT_ID
 
-# SSH into VM
-gcloud compute ssh ubuntu@peterelmwood-web-vm --zone=us-central1-a
+# Database URL
+echo -n "postgresql://user:pass@/dbname?host=/cloudsql/project:region:instance" | gcloud secrets create database-url --data-file=- --project=$GCP_PROJECT_ID
+
+# GCS Bucket
+echo -n "your-bucket-name" | gcloud secrets create gcs-bucket-name --data-file=- --project=$GCP_PROJECT_ID
 ```
 
-### 5. Deploy Application
+### 5. Create Service Account
 
 ```bash
-./scripts/deploy_application.sh deploy
+# Create service account
+gcloud iam service-accounts create cloud-run-sa \
+  --display-name="Cloud Run Service Account" \
+  --project=$GCP_PROJECT_ID
+
+# Grant permissions
+SA_EMAIL="cloud-run-sa@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+  --member="serviceAccount:$SA_EMAIL" \
+  --role="roles/cloudsql.client"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+  --member="serviceAccount:$SA_EMAIL" \
+  --role="roles/storage.objectAdmin"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+  --member="serviceAccount:$SA_EMAIL" \
+  --role="roles/secretmanager.secretAccessor"
 ```
 
-### 6. Access Application
+### 6. Deploy to Cloud Run
 
 ```bash
-# Get the external IP
-terraform output vm_external_ip
+# Using the deployment script
+GCP_PROJECT_ID=$GCP_PROJECT_ID ./scripts/deploy_cloudrun.sh deploy
 
-# Access at http://<EXTERNAL_IP>
+# Or manually with gcloud
+gcloud run deploy peterelmwood-com \
+  --image=$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/peterelmwood/peterelmwood-com:latest \
+  --platform=managed \
+  --region=$GCP_REGION \
+  --allow-unauthenticated \
+  --min-instances=0 \
+  --max-instances=10 \
+  --project=$GCP_PROJECT_ID
 ```
 
 ## Common Commands
 
-### Infrastructure Management
+### Deployment
 
 ```bash
-# Plan changes
-./scripts/deploy_infrastructure.sh plan
+# Full setup and deploy
+GCP_PROJECT_ID=your-project ./scripts/deploy_cloudrun.sh full
 
-# Show outputs
-./scripts/deploy_infrastructure.sh output
+# Deploy only
+GCP_PROJECT_ID=your-project ./scripts/deploy_cloudrun.sh deploy
 
-# Destroy infrastructure
-./scripts/deploy_infrastructure.sh destroy
+# Get service URL
+GCP_PROJECT_ID=your-project ./scripts/deploy_cloudrun.sh url
 ```
 
-### Application Management
+### Monitoring
 
 ```bash
-# Deploy/update application
-./scripts/deploy_application.sh deploy
-
 # View logs
-./scripts/deploy_application.sh logs
+GCP_PROJECT_ID=your-project ./scripts/deploy_cloudrun.sh logs
 
-# Check status
-./scripts/deploy_application.sh status
+# Or with gcloud directly
+gcloud run services logs read peterelmwood-com \
+  --region=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
 
-# Restart application
-./scripts/deploy_application.sh restart
-
-# SSH into VM
-./scripts/deploy_application.sh ssh
+# Describe service
+gcloud run services describe peterelmwood-com \
+  --region=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
 ```
 
-### Direct Terraform Commands
+### Database Migrations
 
 ```bash
-cd terraform
+# Create migration job
+gcloud run jobs create peterelmwood-com-migrate \
+  --image=$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/peterelmwood/peterelmwood-com:latest \
+  --region=$GCP_REGION \
+  --command=uv,run,python,manage.py,migrate \
+  --set-secrets=SECRET_KEY=django-secret-key:latest,DATABASE_URL=database-url:latest \
+  --project=$GCP_PROJECT_ID
 
-terraform init
-terraform plan
-terraform apply
-terraform output
-terraform destroy
+# Execute migration
+gcloud run jobs execute peterelmwood-com-migrate \
+  --region=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
 ```
 
 ## Troubleshooting
 
-### Cannot connect to VM
+### Service not accessible
 
 ```bash
-# Check VM is running
-gcloud compute instances list
+# Check service status
+gcloud run services describe peterelmwood-com \
+  --region=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
 
-# Check firewall rules
-gcloud compute firewall-rules list
-
-# Test SSH
-gcloud compute ssh ubuntu@peterelmwood-web-vm --zone=us-central1-a
+# Check recent revisions
+gcloud run revisions list \
+  --service=peterelmwood-com \
+  --region=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
 ```
 
-### Docker issues on VM
+### View error logs
 
 ```bash
-# SSH into VM
-gcloud compute ssh ubuntu@peterelmwood-web-vm --zone=us-central1-a
+# Real-time logs
+gcloud run services logs tail peterelmwood-com \
+  --region=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
 
-# Check Docker
-sudo systemctl status docker
-docker version
-docker compose version
+# Recent errors
+gcloud run services logs read peterelmwood-com \
+  --region=$GCP_REGION \
+  --project=$GCP_PROJECT_ID \
+  --limit=50 \
+  --format="table(timestamp,severity,textPayload)"
 ```
 
-### Application issues
+### Secret issues
 
 ```bash
-# Check containers
-./scripts/deploy_application.sh status
+# List secrets
+gcloud secrets list --project=$GCP_PROJECT_ID
 
-# View logs
-./scripts/deploy_application.sh logs
+# View secret metadata (not content)
+gcloud secrets describe django-secret-key --project=$GCP_PROJECT_ID
 
-# Restart application
-./scripts/deploy_application.sh restart
+# Update secret
+echo -n "new-secret-value" | gcloud secrets versions add django-secret-key \
+  --data-file=- \
+  --project=$GCP_PROJECT_ID
 ```
-
-## Security Notes
-
-- SSH password authentication is disabled
-- Only key-based authentication is allowed
-- Fail2ban protects against SSH brute force attacks
-- UFW firewall is enabled with minimal rules
-- Automatic security updates are enabled
 
 ## Cost Optimization
 
-- Use `gcloud compute instances stop peterelmwood-web-vm --zone=us-central1-a` to stop VM when not in use
-- Static IP costs apply even when VM is stopped
-- Consider using `e2-micro` for development/testing (free tier eligible)
+Cloud Run automatically optimizes costs:
+
+- **Scales to zero**: No charges when idle
+- **Pay per request**: Only pay for actual usage
+- **Free tier**: 2M requests/month included
+
+Tips:
+- Use `--min-instances=0` for maximum savings
+- Monitor usage in GCP Console
+- Set up billing alerts
+- Use Cloud SQL shared-core instance for development
+
+## Security Best Practices
+
+1. **Secrets Management**: Always use Secret Manager, never hardcode secrets
+2. **Service Account**: Use least-privilege service account
+3. **IAM**: Restrict who can deploy and manage services
+4. **VPC**: Consider VPC Connector for private database access
+5. **Authentication**: Use IAM for admin endpoints
 
 ## Next Steps
 
-1. Configure custom domain DNS to point to VM external IP
-2. Set up HTTPS with Let's Encrypt
-3. Configure backups for PostgreSQL database
-4. Set up monitoring and alerting
-5. Configure log aggregation
+1. Set up custom domain with Cloud Run
+2. Configure Cloud SQL for production database
+3. Set up Cloud Storage bucket for media files
+4. Configure Cloud CDN for static assets
+5. Set up monitoring and alerting
+6. Configure backup strategy for database
