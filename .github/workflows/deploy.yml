@@ -100,6 +100,7 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev
+          
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -114,6 +115,54 @@ jobs:
             ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/peterelmwood-com:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy-to-cloud-run:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: [version-and-tag, build-and-push]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy peterelmwood-com \
+            --image=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/peterelmwood-com:${{ needs.version-and-tag.outputs.tag_name }} \
+            --platform=managed \
+            --region=${{ secrets.GCP_REGION }} \
+            --allow-unauthenticated \
+            --min-instances=0 \
+            --max-instances=10 \
+            --cpu=1 \
+            --memory=512Mi \
+            --timeout=300 \
+            --concurrency=80 \
+            --port=8000 \
+            --service-account=cloud-run-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars="DJANGO_SETTINGS_MODULE=config.settings.production,DEBUG=False,ALLOWED_HOSTS=*,SECURE_SSL_REDIRECT=True" \
+            --set-secrets="SECRET_KEY=django-secret-key:latest,DATABASE_URL=database-url:latest,GS_BUCKET_NAME=gcs-bucket-name:latest" \
+            --project=${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Show service URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe peterelmwood-com \
+            --region=${{ secrets.GCP_REGION }} \
+            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --format="value(status.url)")
+          echo "Service deployed at: $SERVICE_URL"
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
 
   # Placeholder for future documentation build
   # build-docs:

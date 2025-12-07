@@ -5,10 +5,11 @@ Personal website for Peter Elmwood, built with Django and Django REST Framework.
 ## Tech Stack
 
 - **Backend**: Django 5.x with Django REST Framework
-- **Database**: PostgreSQL 17
+- **Database**: PostgreSQL (Cloud SQL)
 - **Package Manager**: uv (Python package manager)
 - **Static Files**: WhiteNoise (local), GCP Cloud Storage (production)
-- **Containerization**: Docker & Docker Compose
+- **Containerization**: Docker
+- **Deployment**: Google Cloud Run (serverless)
 - **CI/CD**: GitHub Actions
 - **Cloud**: Google Cloud Platform (GCP)
 
@@ -25,19 +26,12 @@ peterelmwood_com/
 │   ├── urls.py
 │   ├── wsgi.py
 │   └── asgi.py
-├── terraform/                  # Infrastructure as Code
-│   ├── main.tf                # Main Terraform configuration
-│   ├── variables.tf           # Variable definitions
-│   ├── outputs.tf             # Output values
-│   ├── provider.tf            # Provider configuration
-│   ├── cloud-init.yaml        # VM initialization script
-│   └── README.md              # Infrastructure documentation
 ├── scripts/
-│   ├── deploy_infrastructure.sh  # Infrastructure deployment script
-│   └── deploy_application.sh     # Application deployment script
+│   └── deploy_cloudrun.sh     # Cloud Run deployment script
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml         # CI/CD workflow
+├── cloud-run-service.yaml     # Cloud Run service configuration
 ├── docker-compose.yml         # Local development
 ├── docker-compose.prod.yml    # Production deployment
 ├── Dockerfile
@@ -118,54 +112,127 @@ peterelmwood_com/
 
 ## Production Deployment
 
-### Infrastructure Setup
+The application is deployed to **Google Cloud Run**, a fully managed serverless platform that:
+- Scales automatically from zero to handle traffic
+- Only charges for actual usage (pay-per-request)
+- Provides automatic HTTPS and custom domains
+- Ideal for low to moderate traffic applications
 
-The application can be deployed to a GCP VM using the provided Terraform configuration.
+### Prerequisites
 
-#### Quick Start
+1. **GCP Account** with billing enabled
+2. **GCP Project** created
+3. **Required APIs enabled**:
+   - Cloud Run API
+   - Artifact Registry API
+   - Cloud SQL Admin API (for database)
+   - Secret Manager API
 
-1. **Configure Infrastructure Variables**:
-   ```bash
-   cd terraform
-   cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars with your GCP project details and SSH key
-   ```
+### Initial Setup
 
-2. **Deploy Infrastructure**:
-   ```bash
-   ./scripts/deploy_infrastructure.sh deploy
-   ```
+#### 1. Create GCP Resources
 
-3. **Deploy Application**:
-   ```bash
-   ./scripts/deploy_application.sh deploy
-   ```
+```bash
+# Set your project ID
+export GCP_PROJECT_ID="your-project-id"
+export GCP_REGION="us-central1"
 
-For detailed infrastructure documentation, see [terraform/README.md](terraform/README.md).
+# Enable required APIs
+gcloud services enable run.googleapis.com \
+  artifactregistry.googleapis.com \
+  sqladmin.googleapis.com \
+  secretmanager.googleapis.com \
+  --project=$GCP_PROJECT_ID
 
-### GCP Setup Requirements
+# Create Artifact Registry repository
+gcloud artifacts repositories create peterelmwood \
+  --repository-format=docker \
+  --location=$GCP_REGION \
+  --project=$GCP_PROJECT_ID
+```
 
-1. Create a GCP project
-2. Enable Artifact Registry API
-3. Create an Artifact Registry repository
-4. Create a service account with permissions:
-   - Artifact Registry Writer
-   - Storage Admin (if using GCS)
-5. Generate a JSON key for the service account
+#### 2. Create Secrets
+
+Create the required secrets in Google Secret Manager:
+
+```bash
+# Django secret key
+echo -n "your-django-secret-key" | gcloud secrets create django-secret-key \
+  --data-file=- \
+  --project=$GCP_PROJECT_ID
+
+# Database URL (format: postgresql://user:password@/dbname?host=/cloudsql/project:region:instance)
+echo -n "your-database-url" | gcloud secrets create database-url \
+  --data-file=- \
+  --project=$GCP_PROJECT_ID
+
+# GCS bucket name
+echo -n "your-bucket-name" | gcloud secrets create gcs-bucket-name \
+  --data-file=- \
+  --project=$GCP_PROJECT_ID
+```
+
+#### 3. Create Service Account
+
+```bash
+# Create service account for Cloud Run
+gcloud iam service-accounts create cloud-run-sa \
+  --display-name="Cloud Run Service Account" \
+  --project=$GCP_PROJECT_ID
+
+# Grant necessary permissions
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+  --member="serviceAccount:cloud-run-sa@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/cloudsql.client"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+  --member="serviceAccount:cloud-run-sa@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+  --member="serviceAccount:cloud-run-sa@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+```
+
+### Manual Deployment
+
+Use the deployment script for manual deployments:
+
+```bash
+# Initial setup (run once)
+GCP_PROJECT_ID=your-project-id ./scripts/deploy_cloudrun.sh setup
+
+# Deploy application
+GCP_PROJECT_ID=your-project-id ./scripts/deploy_cloudrun.sh deploy
+
+# View service URL
+GCP_PROJECT_ID=your-project-id ./scripts/deploy_cloudrun.sh url
+
+# View logs
+GCP_PROJECT_ID=your-project-id ./scripts/deploy_cloudrun.sh logs
+```
+
+### Automated Deployment (CI/CD)
+
+The application automatically deploys to Cloud Run when code is pushed to the `main` branch.
 
 ### GitHub Repository Secrets
 
-Set the following secrets in your GitHub repository:
+Set the following secrets in your GitHub repository (Settings → Secrets and variables → Actions):
 
-- `GCP_SERVICE_ACCOUNT_KEY`: GCP service account JSON key
+- `GCP_SERVICE_ACCOUNT_KEY`: GCP service account JSON key with the following roles:
+  - Artifact Registry Writer
+  - Cloud Run Admin
+  - Service Account User
+  - Secret Manager Secret Accessor
 
 ### GitHub Repository Variables
 
-Set the following variables in your GitHub repository:
+Set the following variables in your GitHub repository (Settings → Secrets and variables → Actions → Variables):
 
 - `GCP_PROJECT_ID`: Your GCP project ID
 - `GCP_REGION`: GCP region (e.g., `us-central1`)
-- `GCP_ARTIFACT_REPO`: Artifact Registry repository name
+- `GCP_ARTIFACT_REPO`: Artifact Registry repository name (e.g., `peterelmwood`)
 
 ### Deployment Workflow
 
@@ -173,7 +240,23 @@ The deployment workflow triggers on push to the `main` branch:
 
 1. **Version Increment**: Automatically increments the patch version and creates a git tag
 2. **Build & Push**: Builds the Docker image and pushes to GCP Artifact Registry
-3. **Documentation**: (Future) Build and publish documentation
+3. **Deploy to Cloud Run**: Deploys the latest image to Cloud Run with zero-downtime rolling update
+
+### Cost Estimation
+
+Cloud Run pricing is pay-per-use with a generous free tier:
+
+**Free Tier (per month)**:
+- 2 million requests
+- 360,000 GB-seconds of memory
+- 180,000 vCPU-seconds
+
+**Typical costs for low-traffic site**:
+- ~$0-5/month (within free tier for most personal sites)
+- Cloud SQL: ~$10-20/month (if using smallest instance)
+- Cloud Storage: ~$0.02/GB/month
+
+**Total estimated cost**: $10-25/month (vs $30-35/month for VM)
 
 ## API Documentation
 
