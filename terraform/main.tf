@@ -70,11 +70,11 @@ resource "google_compute_address" "static_ip" {
 }
 
 # Cloud-init configuration for VM setup
-data "template_file" "cloud_init" {
-  template = file("${path.module}/cloud-init.yaml")
-  vars = {
+locals {
+  cloud_init = templatefile("${path.module}/cloud-init.yaml", {
     ssh_user = var.ssh_user
-  }
+    region   = var.region
+  })
 }
 
 # VM Instance
@@ -103,7 +103,7 @@ resource "google_compute_instance" "web_vm" {
 
   metadata = {
     ssh-keys  = "${var.ssh_user}:${var.ssh_public_key}"
-    user-data = data.template_file.cloud_init.rendered
+    user-data = local.cloud_init
   }
 
   metadata_startup_script = <<-EOF
@@ -128,7 +128,8 @@ resource "google_compute_instance" "web_vm" {
 
   service_account {
     scopes = [
-      "https://www.googleapis.com/auth/cloud-platform",
+      "https://www.googleapis.com/auth/compute",
+      "https://www.googleapis.com/auth/devstorage.read_write",
       "https://www.googleapis.com/auth/logging.write",
       "https://www.googleapis.com/auth/monitoring.write",
     ]
