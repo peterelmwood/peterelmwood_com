@@ -137,6 +137,7 @@ jobs:
 
       - name: Deploy to Cloud Run
         run: |
+          # Note: ALLOWED_HOSTS=* for initial setup. Configure specific domains via environment variables or secrets in production
           gcloud run deploy peterelmwood-com \
             --image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/peterelmwood-com:${{ needs.version-and-tag.outputs.tag_name }} \
             --platform=managed \

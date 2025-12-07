@@ -125,6 +125,8 @@ deploy_to_cloud_run() {
     
     log_info "Using image: $IMAGE_URL"
     
+    # Note: ALLOWED_HOSTS=* is used for initial setup. In production, replace with specific domains:
+    # ALLOWED_HOSTS=example.com,www.example.com
     gcloud run deploy "$SERVICE_NAME" \
         --image="$IMAGE_URL" \
         --platform=managed \
