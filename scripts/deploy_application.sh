@@ -105,13 +105,13 @@ deploy_application() {
         docker compose down || true
         
         # Start containers
-        docker compose up -d
+        docker compose up --detach
         
         # Run migrations
-        docker compose exec -T web uv run python manage.py migrate
+        docker compose exec --no-TTY web uv run python manage.py migrate
         
         # Collect static files
-        docker compose exec -T web uv run python manage.py collectstatic --noinput
+        docker compose exec --no-TTY web uv run python manage.py collectstatic --noinput
         
         echo 'Application deployed successfully'
     "
