@@ -95,11 +95,11 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
 
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev
+          gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev
           
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -111,8 +111,8 @@ jobs:
           target: production
           push: true
           tags: |
-            ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/peterelmwood-com:${{ needs.version-and-tag.outputs.tag_name }}
-            ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/peterelmwood-com:latest
+            ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/peterelmwood-com:${{ needs.version-and-tag.outputs.tag_name }}
+            ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/peterelmwood-com:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -134,14 +134,14 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy peterelmwood-com \
-            --image=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPO }}/peterelmwood-com:${{ needs.version-and-tag.outputs.tag_name }} \
+            --image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/peterelmwood-com:${{ needs.version-and-tag.outputs.tag_name }} \
             --platform=managed \
-            --region=${{ secrets.GCP_REGION }} \
+            --region=${{ vars.GCP_REGION }} \
             --allow-unauthenticated \
             --min-instances=0 \
             --max-instances=10 \
@@ -150,16 +150,16 @@ jobs:
             --timeout=300 \
             --concurrency=80 \
             --port=8000 \
-            --service-account=cloud-run-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --service-account=cloud-run-sa@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
             --set-env-vars="DJANGO_SETTINGS_MODULE=config.settings.production,DEBUG=False,ALLOWED_HOSTS=*,SECURE_SSL_REDIRECT=True" \
             --set-secrets="SECRET_KEY=django-secret-key:latest,DATABASE_URL=database-url:latest,GS_BUCKET_NAME=gcs-bucket-name:latest" \
-            --project=${{ secrets.GCP_PROJECT_ID }}
+            --project=${{ vars.GCP_PROJECT_ID }}
 
       - name: Show service URL
         run: |
           SERVICE_URL=$(gcloud run services describe peterelmwood-com \
-            --region=${{ secrets.GCP_REGION }} \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --region=${{ vars.GCP_REGION }} \
+            --project=${{ vars.GCP_PROJECT_ID }} \
             --format="value(status.url)")
           echo "Service deployed at: $SERVICE_URL"
           echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
