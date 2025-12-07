@@ -133,7 +133,7 @@ deploy_to_cloud_run() {
         --region="$REGION" \
         --allow-unauthenticated \
         --min-instances=0 \
-        --max-instances=10 \
+        --max-instances=2 \
         --cpu=1 \
         --memory=512Mi \
         --timeout=300 \

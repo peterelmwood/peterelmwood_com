@@ -9,7 +9,7 @@ spec:
     metadata:
       annotations:
         autoscaling.knative.dev/minScale: '0'
-        autoscaling.knative.dev/maxScale: '10'
+        autoscaling.knative.dev/maxScale: '2'
         run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_NAME
         run.googleapis.com/cpu-throttling: 'true'
     spec:

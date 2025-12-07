@@ -112,8 +112,15 @@ peterelmwood_com/
 
 ## Production Deployment
 
+**IMPORTANT**: Before deploying to production, review the [Pre-Launch Checklist](PRE_LAUNCH.md) for complete setup requirements including:
+- Required GCP resources (Cloud SQL, Cloud Storage, etc.)
+- Google Secret Manager secrets configuration
+- GitHub secrets and variables
+- Database migrations
+- Production security settings
+
 The application is deployed to **Google Cloud Run**, a fully managed serverless platform that:
-- Scales automatically from zero to handle traffic
+- Scales automatically from zero to 2 instances based on traffic
 - Only charges for actual usage (pay-per-request)
 - Provides automatic HTTPS and custom domains
 - Ideal for low to moderate traffic applications
@@ -151,20 +158,40 @@ gcloud artifacts repositories create peterelmwood \
   --project=$GCP_PROJECT_ID
 ```
 
-#### 2. Create Secrets
+#### 2. Create Secrets in Google Secret Manager
 
-Create the required secrets in Google Secret Manager:
+The Cloud Run deployment requires these secrets. **See [PRE_LAUNCH.md](PRE_LAUNCH.md) for detailed setup instructions.**
+
+##### django-secret-key
+**Purpose**: Django's SECRET_KEY for cryptographic signing, session management, and security features.
 
 ```bash
-# Django secret key
-echo -n "your-django-secret-key" | gcloud secrets create django-secret-key \
-  --data-file=- \
-  --project=$GCP_PROJECT_ID
+# Generate a secure secret key
+python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
 
-# Database URL (format: postgresql://user:password@/dbname?host=/cloudsql/project:region:instance)
-echo -n "your-database-url" | gcloud secrets create database-url \
+# Create secret
+echo -n "your-generated-secret-key" | gcloud secrets create django-secret-key \
   --data-file=- \
   --project=$GCP_PROJECT_ID
+```
+
+##### database-url
+**Purpose**: PostgreSQL database connection string for Django's database backend.
+
+**Format**: `postgres://USERNAME:PASSWORD@/DATABASE?host=/cloudsql/PROJECT_ID:REGION:INSTANCE_NAME`
+
+**Example**: `postgres://dbuser:mypassword@/peterelmwood_db?host=/cloudsql/my-project:us-central1:peterelmwood-db`
+
+```bash
+# Create secret with your actual database connection string
+echo -n "postgres://dbuser:YOUR_PASSWORD@/peterelmwood_db?host=/cloudsql/YOUR_PROJECT:us-central1:peterelmwood-db" | \
+  gcloud secrets create database-url \
+  --data-file=- \
+  --project=$GCP_PROJECT_ID
+```
+
+##### gcs-bucket-name
+**Purpose**: Google Cloud Storage bucket name for storing media files and user uploads.
 
 # GCS bucket name
 echo -n "your-bucket-name" | gcloud secrets create gcs-bucket-name \
@@ -228,13 +255,45 @@ The application automatically deploys to Cloud Run when code is pushed to the `m
 
 ### GitHub Repository Secrets
 
-Set the following secrets in your GitHub repository (Settings → Secrets and variables → Actions):
+Set the following secrets in your GitHub repository (Settings → Secrets and variables → Actions → Secrets):
 
-- `GCP_SERVICE_ACCOUNT_KEY`: GCP service account JSON key with the following roles:
-  - Artifact Registry Writer
-  - Cloud Run Admin
-  - Service Account User
-  - Secret Manager Secret Accessor
+#### GCP_SERVICE_ACCOUNT_KEY
+
+**Purpose**: Authenticates GitHub Actions to deploy to GCP (build Docker images, push to Artifact Registry, deploy to Cloud Run).
+
+**Required Roles**:
+- `roles/artifactregistry.writer` - Push Docker images to Artifact Registry
+- `roles/run.admin` - Deploy and manage Cloud Run services
+- `roles/iam.serviceAccountUser` - Act as the Cloud Run service account
+
+**Setup**:
+```bash
+# Create service account for GitHub Actions
+gcloud iam service-accounts create github-actions-sa \
+  --display-name="GitHub Actions Service Account" \
+  --project=YOUR_PROJECT_ID
+
+# Grant necessary roles
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:github-actions-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:github-actions-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:github-actions-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+
+# Create and download key
+gcloud iam service-accounts keys create github-actions-key.json \
+  --iam-account=github-actions-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
+```
+
+Then add the entire JSON key content as the `GCP_SERVICE_ACCOUNT_KEY` secret in GitHub.
+
+**See [PRE_LAUNCH.md](PRE_LAUNCH.md) for complete secret setup instructions.**
 
 ### GitHub Repository Variables
 
