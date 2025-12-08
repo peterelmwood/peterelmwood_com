@@ -1,6 +1,6 @@
-# Website Development Issues
+# Website Development Milestones
 
-This document contains detailed descriptions for GitHub issues to be created for the peterelmwood.com website development project.
+This document contains detailed descriptions for development milestones for the peterelmwood.com website project.
 
 ---
 
