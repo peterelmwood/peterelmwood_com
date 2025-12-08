@@ -1,6 +1,6 @@
 # peterelmwood_com
 
-Personal website for Peter Elmwood, built with Django and Django REST Framework.
+Personal website for Peter Elm Wood, built with Django and Django REST Framework.
 
 ## Tech Stack
 
