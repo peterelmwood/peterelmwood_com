@@ -10,15 +10,15 @@ spec:
       annotations:
         autoscaling.knative.dev/minScale: '0'
         autoscaling.knative.dev/maxScale: '2'
-        run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_NAME
+        run.googleapis.com/cloudsql-instances: ${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_SQL_INSTANCE }}
         run.googleapis.com/cpu-throttling: 'true'
     spec:
-      serviceAccountName: cloud-run-sa@PROJECT_ID.iam.gserviceaccount.com
+      serviceAccountName: ${{ vars.GCP_RUN_SERVICE_ACCOUNT_EMAIL }}
       containerConcurrency: 80
       timeoutSeconds: 300
       containers:
       - name: peterelmwood-com
-        image: REGION-docker.pkg.dev/PROJECT_ID/ARTIFACT_REPO/peterelmwood-com:latest
+        image: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/peterelmwood-com:${{ vars.GCP_IMAGE_TAG }}
         ports:
         - name: http1
           containerPort: 8000
@@ -38,8 +38,7 @@ spec:
               name: database-url
               key: latest
         - name: ALLOWED_HOSTS
-          # NOTE: Replace '*' with specific domains in production (e.g., 'example.com,www.example.com')
-          value: '*'
+          value: 'peterelmwood.com,www.peterelmwood.com'
         - name: GS_BUCKET_NAME
           valueFrom:
             secretKeyRef:

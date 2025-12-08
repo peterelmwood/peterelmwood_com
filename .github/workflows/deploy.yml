@@ -90,7 +90,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          # Deploy uses the dedicated Cloud Run deploy SA key
+          credentials_json: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT_KEY }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -150,8 +151,8 @@ jobs:
             --timeout=300 \
             --concurrency=80 \
             --port=8000 \
-            --service-account=cloud-run-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
-            --set-env-vars="DJANGO_SETTINGS_MODULE=config.settings.production,DEBUG=False,ALLOWED_HOSTS=*,SECURE_SSL_REDIRECT=True" \
+            --service-account=${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }} \
+            --set-env-vars="DJANGO_SETTINGS_MODULE=config.settings.production,DEBUG=False,ALLOWED_HOSTS='peterelmwood.com,www.peterelmwood.com',SECURE_SSL_REDIRECT=True" \
             --set-secrets="SECRET_KEY=django-secret-key:latest,DATABASE_URL=database-url:latest,GS_BUCKET_NAME=gcs-bucket-name:latest" \
             --project=${{ secrets.GCP_PROJECT_ID }}
 
