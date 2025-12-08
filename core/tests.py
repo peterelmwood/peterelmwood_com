@@ -3,7 +3,7 @@ from io import StringIO
 from django.core.management import call_command
 from django.test import TestCase
 
-from .models import BlogPost, Project
+from core.models import BlogPost, Project
 
 
 class GenerateSampleDataCommandTests(TestCase):
@@ -23,19 +23,31 @@ class GenerateSampleDataCommandTests(TestCase):
 
     def test_command_creates_default_number_of_objects(self):
         """Test that command creates default number of blog posts and projects."""
+        initial_posts = BlogPost.objects.count()
+        initial_projects = Project.objects.count()
+
         output = self.call_command()
 
-        self.assertEqual(BlogPost.objects.count(), 10)
-        self.assertEqual(Project.objects.count(), 5)
+        final_posts = BlogPost.objects.count()
+        final_projects = Project.objects.count()
+
+        self.assertEqual(final_posts - initial_posts, 10)
+        self.assertEqual(final_projects - initial_projects, 5)
         self.assertIn("Created 10 blog posts", output)
         self.assertIn("Created 5 projects", output)
 
     def test_command_with_custom_counts(self):
         """Test command with custom counts for posts and projects."""
+        initial_posts = BlogPost.objects.count()
+        initial_projects = Project.objects.count()
+
         output = self.call_command("--posts=3", "--projects=2")
 
-        self.assertEqual(BlogPost.objects.count(), 3)
-        self.assertEqual(Project.objects.count(), 2)
+        final_posts = BlogPost.objects.count()
+        final_projects = Project.objects.count()
+
+        self.assertEqual(final_posts - initial_posts, 3)
+        self.assertEqual(final_projects - initial_projects, 2)
         self.assertIn("Created 3 blog posts", output)
         self.assertIn("Created 2 projects", output)
 
@@ -49,14 +61,20 @@ class GenerateSampleDataCommandTests(TestCase):
             title="Test Project", description="Test description", slug="test-project"
         )
 
-        self.assertEqual(BlogPost.objects.count(), 1)
-        self.assertEqual(Project.objects.count(), 1)
+        initial_posts = BlogPost.objects.count()
+        initial_projects = Project.objects.count()
+
+        self.assertEqual(initial_posts, 1)
+        self.assertEqual(initial_projects, 1)
 
         # Run command with --clear flag
         output = self.call_command("--posts=2", "--projects=1", "--clear")
 
-        self.assertEqual(BlogPost.objects.count(), 2)
-        self.assertEqual(Project.objects.count(), 1)
+        final_posts = BlogPost.objects.count()
+        final_projects = Project.objects.count()
+
+        self.assertEqual(final_posts, 2)
+        self.assertEqual(final_projects, 1)
         self.assertIn("Existing data cleared", output)
 
     def test_blog_posts_have_required_fields(self):

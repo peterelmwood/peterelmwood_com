@@ -27,10 +27,19 @@ class BlogPost(models.Model):
             base_slug = slugify(self.title)
             self.slug = base_slug
             # Handle duplicate slugs by appending a counter
-            counter = 1
-            while BlogPost.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
-                self.slug = f"{base_slug}-{counter}"
-                counter += 1
+            # Fetch all slugs that start with base_slug in one query
+            if BlogPost.objects.filter(
+                slug__startswith=base_slug
+            ).exclude(pk=self.pk).exists():
+                existing_slugs = set(
+                    BlogPost.objects.filter(
+                        slug__startswith=base_slug
+                    ).exclude(pk=self.pk).values_list("slug", flat=True)
+                )
+                counter = 1
+                while self.slug in existing_slugs:
+                    self.slug = f"{base_slug}-{counter}"
+                    counter += 1
         super().save(*args, **kwargs)
 
 
@@ -60,8 +69,17 @@ class Project(models.Model):
             base_slug = slugify(self.title)
             self.slug = base_slug
             # Handle duplicate slugs by appending a counter
-            counter = 1
-            while Project.objects.filter(slug=self.slug).exclude(pk=self.pk).exists():
-                self.slug = f"{base_slug}-{counter}"
-                counter += 1
+            # Fetch all slugs that start with base_slug in one query
+            if Project.objects.filter(
+                slug__startswith=base_slug
+            ).exclude(pk=self.pk).exists():
+                existing_slugs = set(
+                    Project.objects.filter(
+                        slug__startswith=base_slug
+                    ).exclude(pk=self.pk).values_list("slug", flat=True)
+                )
+                counter = 1
+                while self.slug in existing_slugs:
+                    self.slug = f"{base_slug}-{counter}"
+                    counter += 1
         super().save(*args, **kwargs)

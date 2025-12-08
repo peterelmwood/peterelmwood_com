@@ -2,6 +2,7 @@
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.utils.text import slugify
 from faker import Faker
 
 from core.models import BlogPost, Project
@@ -47,27 +48,40 @@ class Command(BaseCommand):
 
         # Generate blog posts
         self.stdout.write(f"Generating {posts_count} blog posts...")
+        blog_posts = []
+        used_slugs = set()
         for _ in range(posts_count):
             title = fake.sentence(nb_words=6).rstrip(".")
             content_paragraphs = [fake.paragraph(nb_sentences=5) for _ in range(3)]
             content = "\n\n".join(content_paragraphs)
-
-            blog_post = BlogPost.objects.create(
-                title=title,
-                content=content,
-                excerpt=fake.paragraph(nb_sentences=2),
-                published=fake.boolean(chance_of_getting_true=70),
-                created_at=fake.date_time_between(
-                    start_date="-1y",
-                    end_date="now",
-                    tzinfo=timezone.get_current_timezone(),
-                ),
+            published = fake.boolean(chance_of_getting_true=70)
+            created_at = fake.date_time_between(
+                start_date="-1y",
+                end_date="now",
+                tzinfo=timezone.get_current_timezone(),
             )
 
-            if blog_post.published:
-                blog_post.published_at = blog_post.created_at
-                blog_post.save()
+            # Generate unique slug
+            base_slug = slugify(title)
+            slug = base_slug
+            counter = 1
+            while slug in used_slugs:
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            used_slugs.add(slug)
 
+            blog_post = BlogPost(
+                title=title,
+                slug=slug,
+                content=content,
+                excerpt=fake.paragraph(nb_sentences=2),
+                published=published,
+                created_at=created_at,
+                published_at=created_at if published else None,
+            )
+            blog_posts.append(blog_post)
+
+        BlogPost.objects.bulk_create(blog_posts)
         self.stdout.write(self.style.SUCCESS(f"Created {posts_count} blog posts"))
 
         # Generate projects
@@ -82,13 +96,25 @@ class Command(BaseCommand):
             "Flask, SQLAlchemy, Celery",
         ]
 
+        projects = []
+        used_slugs = set()
         for _ in range(projects_count):
             title = fake.catch_phrase()
             description_paragraphs = [fake.paragraph(nb_sentences=3) for _ in range(2)]
             description = "\n\n".join(description_paragraphs)
 
-            Project.objects.create(
+            # Generate unique slug
+            base_slug = slugify(title)
+            slug = base_slug
+            counter = 1
+            while slug in used_slugs:
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            used_slugs.add(slug)
+
+            project = Project(
                 title=title,
+                slug=slug,
                 description=description,
                 tech_stack=fake.random_element(elements=tech_stacks),
                 github_url=(
@@ -104,7 +130,9 @@ class Command(BaseCommand):
                     tzinfo=timezone.get_current_timezone(),
                 ),
             )
+            projects.append(project)
 
+        Project.objects.bulk_create(projects)
         self.stdout.write(self.style.SUCCESS(f"Created {projects_count} projects"))
         self.stdout.write(
             self.style.SUCCESS(
