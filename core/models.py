@@ -27,15 +27,13 @@ class BlogPost(models.Model):
             base_slug = slugify(self.title)
             self.slug = base_slug
             # Handle duplicate slugs by appending a counter
-            # Fetch all slugs that start with base_slug in one query
-            if BlogPost.objects.filter(
-                slug__startswith=base_slug
-            ).exclude(pk=self.pk).exists():
-                existing_slugs = set(
-                    BlogPost.objects.filter(
-                        slug__startswith=base_slug
-                    ).exclude(pk=self.pk).values_list("slug", flat=True)
-                )
+            # Fetch all matching slugs in a single query
+            existing_slugs = set(
+                BlogPost.objects.filter(
+                    slug__startswith=base_slug
+                ).exclude(pk=self.pk).values_list("slug", flat=True)
+            )
+            if existing_slugs:
                 counter = 1
                 while self.slug in existing_slugs:
                     self.slug = f"{base_slug}-{counter}"
@@ -69,15 +67,13 @@ class Project(models.Model):
             base_slug = slugify(self.title)
             self.slug = base_slug
             # Handle duplicate slugs by appending a counter
-            # Fetch all slugs that start with base_slug in one query
-            if Project.objects.filter(
-                slug__startswith=base_slug
-            ).exclude(pk=self.pk).exists():
-                existing_slugs = set(
-                    Project.objects.filter(
-                        slug__startswith=base_slug
-                    ).exclude(pk=self.pk).values_list("slug", flat=True)
-                )
+            # Fetch all matching slugs in a single query
+            existing_slugs = set(
+                Project.objects.filter(
+                    slug__startswith=base_slug
+                ).exclude(pk=self.pk).values_list("slug", flat=True)
+            )
+            if existing_slugs:
                 counter = 1
                 while self.slug in existing_slugs:
                     self.slug = f"{base_slug}-{counter}"
