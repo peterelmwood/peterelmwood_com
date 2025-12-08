@@ -102,3 +102,31 @@ class GenerateSampleDataCommandTests(TestCase):
 
         project_slugs = list(Project.objects.values_list("slug", flat=True))
         self.assertEqual(len(project_slugs), len(set(project_slugs)))
+
+    def test_duplicate_titles_get_unique_slugs(self):
+        """Test that models with duplicate titles get unique slugs."""
+        # Create blog posts with the same title
+        post1 = BlogPost.objects.create(
+            title="Test Post", content="Test content 1"
+        )
+        post2 = BlogPost.objects.create(
+            title="Test Post", content="Test content 2"
+        )
+        post3 = BlogPost.objects.create(
+            title="Test Post", content="Test content 3"
+        )
+
+        self.assertEqual(post1.slug, "test-post")
+        self.assertEqual(post2.slug, "test-post-1")
+        self.assertEqual(post3.slug, "test-post-2")
+
+        # Create projects with the same title
+        proj1 = Project.objects.create(
+            title="Test Project", description="Test description 1"
+        )
+        proj2 = Project.objects.create(
+            title="Test Project", description="Test description 2"
+        )
+
+        self.assertEqual(proj1.slug, "test-project")
+        self.assertEqual(proj2.slug, "test-project-1")

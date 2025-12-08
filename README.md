@@ -69,7 +69,12 @@ peterelmwood_com/
    docker compose exec web uv run python manage.py createsuperuser
    ```
 
-5. Access the application at http://localhost:8000
+5. (Optional) Generate sample data for testing:
+   ```bash
+   docker compose exec web uv run python manage.py generate_sample_data
+   ```
+
+6. Access the application at http://localhost:8000
 
 ### Local Development without Docker
 
@@ -94,10 +99,40 @@ peterelmwood_com/
    uv run python manage.py migrate
    ```
 
-5. Start the development server:
+5. (Optional) Generate sample data for testing:
+   ```bash
+   uv run python manage.py generate_sample_data
+   ```
+
+6. Start the development server:
    ```bash
    uv run python manage.py runserver
    ```
+
+## Development Tools
+
+### Generate Sample Data
+
+For development and testing purposes, you can generate sample data for blog posts and projects:
+
+```bash
+# Generate default sample data (10 blog posts, 5 projects)
+uv run python manage.py generate_sample_data
+
+# Generate custom amounts
+uv run python manage.py generate_sample_data --posts=20 --projects=10
+
+# Clear existing data and generate new data
+uv run python manage.py generate_sample_data --clear
+
+# Combine options
+uv run python manage.py generate_sample_data --posts=15 --projects=8 --clear
+```
+
+**Options:**
+- `--posts`: Number of blog posts to create (default: 10)
+- `--projects`: Number of projects to create (default: 5)
+- `--clear`: Clear existing data before generating new data
 
 ## Environment Variables
 

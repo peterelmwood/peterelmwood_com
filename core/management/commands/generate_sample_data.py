@@ -47,7 +47,7 @@ class Command(BaseCommand):
 
         # Generate blog posts
         self.stdout.write(f"Generating {posts_count} blog posts...")
-        for i in range(posts_count):
+        for _ in range(posts_count):
             title = fake.sentence(nb_words=6).rstrip(".")
             content_paragraphs = [fake.paragraph(nb_sentences=5) for _ in range(3)]
             content = "\n\n".join(content_paragraphs)
@@ -82,7 +82,7 @@ class Command(BaseCommand):
             "Flask, SQLAlchemy, Celery",
         ]
 
-        for i in range(projects_count):
+        for _ in range(projects_count):
             title = fake.catch_phrase()
             description_paragraphs = [fake.paragraph(nb_sentences=3) for _ in range(2)]
             description = "\n\n".join(description_paragraphs)
