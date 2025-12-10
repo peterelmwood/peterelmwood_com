@@ -200,54 +200,98 @@ Configure in GitHub repository: Settings → Secrets and variables → Actions �
 
 #### 1. GCP_SERVICE_ACCOUNT_KEY
 
-Create a service account key for GitHub Actions deployments:
+Create a service account for GitHub Actions to deploy to Cloud Run:
 
 ```bash
-# Create service account for GitHub Actions
-gcloud iam service-accounts create github-actions-sa \
-  --display-name="GitHub Actions Service Account" \
+# Create service account for GitHub Actions (deploy)
+gcloud iam service-accounts create github-actions-deploy-sa \
+  --display-name="GitHub Actions Deploy Service Account" \
   --project=YOUR_PROJECT_ID
 
 # Grant necessary roles
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-  --member="serviceAccount:github-actions-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/artifactregistry.writer"
-
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-  --member="serviceAccount:github-actions-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --member="serviceAccount:github-actions-deploy-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
   --role="roles/run.admin"
 
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-  --member="serviceAccount:github-actions-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --member="serviceAccount:github-actions-deploy-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
 
 # Create and download key
-gcloud iam service-accounts keys create github-actions-key.json \
-  --iam-account=github-actions-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com \
+gcloud iam service-accounts keys create github-actions-deploy-key.json \
+  --iam-account=github-actions-deploy-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com \
   --project=YOUR_PROJECT_ID
 ```
 
-- [ ] GitHub Actions service account created
-- [ ] Roles granted: Artifact Registry Writer, Cloud Run Admin, Service Account User
+- [ ] GitHub Actions deploy service account created
+- [ ] Roles granted: Cloud Run Admin, Service Account User
 - [ ] Service account key JSON downloaded
 - [ ] Key added to GitHub as secret `GCP_SERVICE_ACCOUNT_KEY` (paste entire JSON content)
 
-**Purpose**: Authenticates GitHub Actions to deploy to GCP (build Docker images, push to Artifact Registry, deploy to Cloud Run).
+**Purpose**: Authenticates GitHub Actions to deploy to Cloud Run.
 
 **Required Roles**:
-- `roles/artifactregistry.writer` - Push Docker images to Artifact Registry
 - `roles/run.admin` - Deploy and manage Cloud Run services
 - `roles/iam.serviceAccountUser` - Act as the Cloud Run service account
 
-### GitHub Variables
+#### 2. GCP_DEPLOY_SERVICE_ACCOUNT_KEY
 
-Configure in GitHub repository: Settings → Secrets and variables → Actions → Variables
+Create a service account for GitHub Actions to build and push Docker images:
 
-- [ ] `GCP_PROJECT_ID` = Your GCP project ID (e.g., `my-project-123`)
-- [ ] `GCP_REGION` = GCP region (e.g., `us-central1`)
-- [ ] `GCP_ARTIFACT_REPO` = Artifact Registry repository name (e.g., `peterelmwood`)
+```bash
+# Create service account for GitHub Actions (build)
+gcloud iam service-accounts create github-actions-build-sa \
+  --display-name="GitHub Actions Build Service Account" \
+  --project=YOUR_PROJECT_ID
 
-**Purpose**: Non-sensitive configuration values used in GitHub Actions workflow.
+# Grant necessary role
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:github-actions-build-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+# Create and download key
+gcloud iam service-accounts keys create github-actions-build-key.json \
+  --iam-account=github-actions-build-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com \
+  --project=YOUR_PROJECT_ID
+```
+
+- [ ] GitHub Actions build service account created
+- [ ] Role granted: Artifact Registry Writer
+- [ ] Service account key JSON downloaded
+- [ ] Key added to GitHub as secret `GCP_DEPLOY_SERVICE_ACCOUNT_KEY` (paste entire JSON content)
+
+**Purpose**: Authenticates GitHub Actions to build and push Docker images to Artifact Registry.
+
+**Required Roles**:
+- `roles/artifactregistry.writer` - Push Docker images to Artifact Registry
+
+#### 3. GCP_PROJECT_ID
+
+- [ ] GCP project ID added as secret (e.g., `my-project-123456`)
+
+**Purpose**: Your GCP project identifier.
+
+#### 4. GCP_REGION
+
+- [ ] GCP region added as secret (e.g., `us-central1`)
+
+**Purpose**: GCP region for deploying resources.
+
+#### 5. GCP_ARTIFACT_REPO
+
+- [ ] Artifact Registry repository name added as secret (e.g., `peterelmwood`)
+
+**Purpose**: Artifact Registry repository name for storing Docker images.
+
+#### 6. GCP_SERVICE_ACCOUNT_EMAIL
+
+- [ ] Cloud Run service account email added as secret (e.g., `cloud-run-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com`)
+
+**Purpose**: Email address of the Cloud Run service account that the deployed service will run as.
+
+**Format**: `cloud-run-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com`
+
+**Note**: This is the email of the service account created in the "Service Account for Cloud Run" step above (the one with Cloud SQL, Storage, and Secret Manager permissions).
 
 ## Database Migrations
 
@@ -350,14 +394,12 @@ Before going live, verify:
 ### Secrets
 | Secret Name | Purpose | Content |
 |------------|---------|---------|
-| `GCP_SERVICE_ACCOUNT_KEY` | GitHub Actions authentication | JSON key file content |
-
-### Variables
-| Variable Name | Purpose | Example Value |
-|--------------|---------|---------------|
-| `GCP_PROJECT_ID` | GCP project identifier | `my-project-123` |
-| `GCP_REGION` | Deployment region | `us-central1` |
-| `GCP_ARTIFACT_REPO` | Docker registry name | `peterelmwood` |
+| `GCP_SERVICE_ACCOUNT_KEY` | GitHub Actions authentication for Cloud Run deployment | JSON key file content (deploy SA) |
+| `GCP_DEPLOY_SERVICE_ACCOUNT_KEY` | GitHub Actions authentication for building/pushing Docker images | JSON key file content (build SA) |
+| `GCP_PROJECT_ID` | GCP project identifier | e.g., `my-project-123456` |
+| `GCP_REGION` | Deployment region | e.g., `us-central1` |
+| `GCP_ARTIFACT_REPO` | Docker registry name | e.g., `peterelmwood` |
+| `GCP_SERVICE_ACCOUNT_EMAIL` | Cloud Run service account email | e.g., `cloud-run-sa@PROJECT.iam.gserviceaccount.com` |
 
 ## Cost Estimates
 
